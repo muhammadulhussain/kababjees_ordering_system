@@ -1,15 +1,12 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import api from "../utils/api";
-
-
+import { getToken, removeToken } from "../utils/auth";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
     if (!token) {
       window.location.href = "/login";
@@ -21,11 +18,9 @@ export default function Dashboard() {
         const res = await api.get("/customers/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         setUser(res.data);
-      } catch (error) {
-        console.error(error);
-        localStorage.removeItem("token");
+      } catch (e) {
+        removeToken();
         window.location.href = "/login";
       }
     };
@@ -37,7 +32,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 text-black">
-      <div className="bg-white p-6 rounded-md shadow-lg">
+      <div className="bg-white p-6 rounded shadow-lg">
         <h1 className="text-2xl font-bold mb-2">Welcome</h1>
         <p>Name: {user.full_name}</p>
         <p>Email: {user.email}</p>

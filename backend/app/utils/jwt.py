@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 
-SECRET_KEY = "YOUR_SECRET_KEY_HERE"
+SECRET_KEY = "YOUR_SECRET_KEY_HERE"  # Apna strong key yahan dalen
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 

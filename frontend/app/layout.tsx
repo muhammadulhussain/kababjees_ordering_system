@@ -1,9 +1,9 @@
-import "./globals.css";
-import Navbar from "../components/Navbar";
+// app/layout.tsx
+import "../styles/globals.css"; // your global styles
 
 export const metadata = {
-  title: "Kababjees Ordering System",
-  description: "Food Ordering System",
+  title: "Kababjees Fried Chicken",
+  description: "Ordering system",
 };
 
 export default function RootLayout({
@@ -13,10 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <Navbar />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

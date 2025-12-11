@@ -1,71 +1,55 @@
-"use client";
+"use client"; // <-- must be first line
 
 import { useState } from "react";
-import api from "../../services/api";
-import Link from "next/link"; // import Link
+import api from "../utils/api";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+export default function Register() {
+  const [form, setForm] = useState({ email: "", password: "" });
 
-  const handleLogin = async () => {
-  try {
-    const res = await api.post("/auth/login", {
-      email,
-      password,
-    });
+  const handleChange = (e: any) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
-    const token = res.data.access_token;
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
 
-    // Save token in localStorage
-    localStorage.setItem("token", token);
-
-    setMessage("Login successful! Redirecting...");
-
-    setTimeout(() => {
-      window.location.href = "/dashboard";
-    }, 1200);
-
-  } catch (err: any) {
-    setMessage(err.response?.data?.detail || "Login failed");
-  }
-};
-
+    try {
+      const res = await api.post("/auth/register", form);
+      alert("Registration successful!");
+    } catch (error) {
+      console.error(error);
+      alert("Registration failed");
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl mb-4">Customer Login</h1>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="border p-2 mb-2"
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="border p-2 mb-2"
-      />
-      <button
-        onClick={handleLogin}
-        className="bg-blue-500 text-white px-4 py-2 mb-2"
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 text-black">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-6 rounded-md shadow-lg w-96"
       >
-        Login
-      </button>
+        <h2 className="text-2xl mb-4 font-bold">Register</h2>
 
-      {/* Link to Register Page */}
-      <p className="mt-4">
-        Don’t have an account?{" "}
-        <Link href="/register" className="text-blue-600 underline">
-          Register here
-        </Link>
-      </p>
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          onChange={handleChange}
+          className="w-full border p-2 mb-2"
+        />
 
-      <p className="mt-2 text-red-500">{message}</p>
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          onChange={handleChange}
+          className="w-full border p-2 mb-3"
+        />
+
+        <button className="w-full bg-green-600 text-white p-2 rounded">
+          Register
+        </button>
+      </form>
     </div>
   );
 }
