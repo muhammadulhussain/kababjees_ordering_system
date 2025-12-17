@@ -1,9 +1,9 @@
-"use client"; // <-- must be first line
+"use client";
 
 import { useState } from "react";
 import api from "../utils/api";
 
-export default function Register() {
+export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
 
   const handleChange = (e: any) => {
@@ -12,13 +12,13 @@ export default function Register() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-
     try {
-      const res = await api.post("/auth/register", form);
-      alert("Registration successful!");
+      const res = await api.post("/auth/login", form);
+      alert("Login successful!");
+      // You can redirect user here after login
     } catch (error) {
       console.error(error);
-      alert("Registration failed");
+      alert("Login failed");
     }
   };
 
@@ -28,7 +28,7 @@ export default function Register() {
         onSubmit={handleSubmit}
         className="bg-white p-6 rounded-md shadow-lg w-96"
       >
-        <h2 className="text-2xl mb-4 font-bold">Register</h2>
+        <h2 className="text-2xl mb-4 font-bold">Login</h2>
 
         <input
           type="email"
@@ -46,8 +46,8 @@ export default function Register() {
           className="w-full border p-2 mb-3"
         />
 
-        <button className="w-full bg-green-600 text-white p-2 rounded">
-          Register
+        <button className="w-full bg-blue-600 text-white p-2 rounded">
+          Login
         </button>
       </form>
     </div>
