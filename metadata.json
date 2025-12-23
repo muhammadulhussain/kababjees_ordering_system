@@ -1,0 +1,6 @@
+
+{
+  "name": "Kababjees Fried Chicken - AI Ordering Portal",
+  "description": "A high-performance fried chicken ordering platform featuring an AI agent that eliminates waiting times and streamlines customer orders.",
+  "requestFramePermissions": ["geolocation"]
+}
