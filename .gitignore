@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -22,3 +23,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+=======
+"*.pyc" 
+"__pycache__/" 
+>>>>>>> 1dc696de31b12263f5c17d1faf86274556d4e341
