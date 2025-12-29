@@ -1,120 +1,111 @@
-
-import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { db } from './db';
 import { MENU_ITEMS } from '../constants';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-
-const createOrderFn: FunctionDeclaration = {
-  name: 'createOrder',
-  parameters: {
-    type: Type.OBJECT,
-    description: 'Create a new food order for the current user.',
-    properties: {
-      itemIds: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: 'List of food item IDs to order'
-      },
-      quantities: {
-        type: Type.ARRAY,
-        items: { type: Type.INTEGER },
-        description: 'Quantities corresponding to the item IDs'
-      }
-    },
-    required: ['itemIds', 'quantities']
-  }
-};
-
-const trackOrderFn: FunctionDeclaration = {
-  name: 'trackOrder',
-  parameters: {
-    type: Type.OBJECT,
-    description: 'Track the status of an existing order.',
-    properties: {
-      orderId: {
-        type: Type.STRING,
-        description: 'The unique ID of the order to track'
-      }
-    },
-    required: ['orderId']
-  }
-};
-
-const getCustomerInfoFn: FunctionDeclaration = {
-  name: 'getCustomerInfo',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {}
-  }
-};
+// API Key Load karein
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 export const handleAgentAction = async (prompt: string) => {
-  const model = 'gemini-3-flash-preview';
-  const response = await ai.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      systemInstruction: `You are 'Crispy', the Kababjees Fried Chicken Assistant. 
-      Your goal is to provide zero waiting time service. 
-      Available Menu: ${JSON.stringify(MENU_ITEMS)}.
-      Use tools to create orders, track them, or get customer info.
-      Be friendly, fast, and suggestive of meal deals.
-      If a user asks to order something, extract the item IDs from the menu provided.
-      Current User: ${JSON.stringify(db.getCurrentUser())}`,
-      tools: [{ functionDeclarations: [createOrderFn, trackOrderFn, getCustomerInfoFn] }]
-    }
-  });
+  try {
+    // 1. Tools ko yahan model initialization ke waqt hi define kar dein
+    // 2. v1beta hi use karein kyunki function calling preview feature hai
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      tools: [{
+        functionDeclarations: [
+          {
+            name: 'createOrder',
+            description: 'Create a new food order for the current user.',
+            parameters: {
+              type: SchemaType.OBJECT,
+              properties: {
+                itemIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: 'IDs of items' },
+                quantities: { type: SchemaType.ARRAY, items: { type: SchemaType.NUMBER }, description: 'Quantities' }
+              },
+              required: ['itemIds', 'quantities']
+            }
+          },
+          {
+            name: 'trackOrder',
+            description: 'Track the status of an existing order.',
+            parameters: {
+              type: SchemaType.OBJECT,
+              properties: {
+                orderId: { type: SchemaType.STRING, description: 'Order ID to track' }
+              },
+              required: ['orderId']
+            }
+          }
+        ],
+      }],
+    });
 
-  const calls = response.functionCalls;
-  if (calls && calls.length > 0) {
-    const call = calls[0];
-    if (call.name === 'createOrder') {
-      const { itemIds, quantities } = call.args as any;
-      const currentUser = db.getCurrentUser();
-      if (!currentUser) return { text: "Please log in first to place an order.", action: 'LOGIN_REQUIRED' };
+    // System instruction ko context mein bhejna
+    const chat = model.startChat({
+      history: [
+        {
+          role: "user",
+          parts: [{ text: `You are 'Crispy', the Kababjees Fried Chicken AI Assistant.
+            Available Menu: ${JSON.stringify(MENU_ITEMS)}.
+            Current User: ${JSON.stringify(db.getCurrentUser())}.
+            If the user wants to order, use createOrder. If they want to track, use trackOrder.` 
+          }],
+        },
+        {
+          role: "model",
+          parts: [{ text: "Understood! I am Crispy, ready to take your order." }],
+        }
+      ],
+    });
 
-      const items = itemIds.map((id: string, idx: number) => {
-        const menuItem = MENU_ITEMS.find(m => m.id === id);
-        return {
-          itemId: id,
-          name: menuItem?.name || 'Unknown Item',
-          quantity: quantities[idx] || 1,
-          price: menuItem?.price || 0
+    const result = await chat.sendMessage(prompt);
+    const response = result.response;
+    
+    // Function calls check karein
+    const calls = response.functionCalls();
+
+    if (calls && calls.length > 0) {
+      const call = calls[0];
+      console.log("Function Executing:", call.name);
+
+      if (call.name === 'createOrder') {
+        const { itemIds, quantities } = call.args as any;
+        const currentUser = db.getCurrentUser();
+        if (!currentUser) return { text: "Please log in first.", action: 'LOGIN_REQUIRED' };
+
+        const newOrder: any = {
+          id: 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+          userId: currentUser.id,
+          status: 'Preparing',
+          total: 1000 // Sample Price
         };
-      });
-
-      const total = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
-      const newOrder: any = {
-        id: 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        userId: currentUser.id,
-        items,
-        total,
-        status: 'Preparing',
-        createdAt: new Date().toISOString()
-      };
-
-      db.saveOrder(newOrder);
-      return { 
-        text: `Success! I've placed your order ${newOrder.id}. Total amount: Rs. ${total}. Your chicken is being prepared!`, 
-        order: newOrder 
-      };
-    }
-
-    if (call.name === 'trackOrder') {
-      const { orderId } = call.args as any;
-      const order = db.trackOrder(orderId);
-      if (order) {
-        return { text: `Order ${orderId} is currently: ${order.status}. It should be with you shortly!` };
+        db.saveOrder(newOrder);
+        return { text: `Order ${newOrder.id} placed! Crispy is getting your chicken ready!` };
       }
-      return { text: `Sorry, I couldn't find an order with ID ${orderId}.` };
+
+      if (call.name === 'trackOrder') {
+        const { orderId } = call.args as any;
+        const order = db.trackOrder(orderId);
+        return { text: order ? `Order ${orderId} is currently: ${order.status}` : "Order not found." };
+      }
     }
 
-    if (call.name === 'getCustomerInfo') {
-      const user = db.getCurrentUser();
-      return { text: user ? `You are logged in as ${user.name}. Address: ${user.address || 'Not set'}.` : "You are not logged in." };
+    return { text: response.text() };
+
+  } catch (error: any) {
+    console.error("DEBUG ERROR:", error);
+    
+    // Agar region block ho (404/403)
+    if (error.message?.includes('404') || error.message?.includes('location')) {
+        return { text: "Crispy: Pakistan se direct connection mein masla ho raha hai. Please aik baar VPN try karein." };
     }
+    
+    // Agar structure galat ho (400)
+    if (error.message?.includes('400')) {
+        return { text: "Crispy: Mere dimagh mein thora masla ho raha hai (API Error). Please dobara koshish karein." };
+    }
+
+    throw error;
   }
-
-  return { text: response.text };
 };
